@@ -218,10 +218,16 @@ function pad2(n){ return String(n).padStart(2,'0'); }
 var SNAP=/[?&]snap/.test(location.search);
 if(SNAP) document.documentElement.classList.add('snap');
 
+function resetEntryCurtain(){
+  clearTimeout(enter.timer);enter.busy=false;
+  var c=$('#curtain');c.classList.remove('in');
+}
+window.addEventListener('pageshow',resetEntryCurtain);
+document.addEventListener('visibilitychange',function(){if(!document.hidden)resetEntryCurtain();});
 function enter(href){
-  var c=$('#curtain');
-  c.classList.add('in');
-  setTimeout(function(){ location.href=href; }, 560);
+  if(enter.busy)return;enter.busy=true;
+  var c=$('#curtain');c.classList.add('in');
+  enter.timer=setTimeout(function(){location.assign(href);},matchMedia('(prefers-reduced-motion: reduce)').matches?0:360);
 }
 
 /* ============================================================
@@ -514,6 +520,7 @@ function DotTitle(canvas){
   }
   document.addEventListener('visibilitychange',titleVisibility);
   canvas.addEventListener('pointermove', function(e){
+    if(e.pointerType==='touch')return;
     var r=canvas.getBoundingClientRect();
     mouse.x=(e.clientX-r.left)*DPR; mouse.y=(e.clientY-r.top)*DPR;
   });
