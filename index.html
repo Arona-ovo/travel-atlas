@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ATLAS · 旅行总站</title>
+<style>
+:root{
+  --paper:#FCF9F6; --ink:#171512; --red:#F1451A; --dot:#D8482F; --grey:#8C867B; --line:#E4E0D7;
+  --sans:"Helvetica Neue",Helvetica,Arial,"PingFang SC","Microsoft YaHei",sans-serif;
+  --serif:"Songti SC","STSong","SimSun",Georgia,serif;
+  --mono:"SFMono-Regular",Consolas,"Courier New",monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{background:var(--paper);color:var(--ink);font-family:var(--sans);overflow:hidden;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none;cursor:pointer}
+button{font-family:inherit;cursor:pointer;background:none;border:none;color:inherit}
+::selection{background:var(--red);color:#fff}
+
+/* ---------- nav ---------- */
+nav{position:fixed;inset:0 0 auto 0;height:56px;display:flex;align-items:stretch;justify-content:space-between;
+  padding:0 0 0 28px;background:var(--paper);border-bottom:1px solid var(--line);z-index:60}
+.logo{font-weight:900;font-size:18px;letter-spacing:.01em;display:flex;align-items:center;gap:7px}
+.logo .bd{border:1.5px solid var(--red);color:var(--red);font-size:8.5px;font-weight:800;padding:1.5px 4px;letter-spacing:.16em;font-family:var(--serif)}
+.nav-r{display:flex;align-items:stretch;font-size:10.5px;letter-spacing:.18em;font-weight:700}
+.nav-r>*{display:flex;align-items:center;padding:0 24px;border-left:1px solid var(--line);color:#4C4842;transition:color .15s}
+.nav-r>*:hover{color:var(--red)}
+.snd{gap:8px;font-family:var(--serif);font-style:italic;font-size:13px;font-weight:400;letter-spacing:.06em}
+.snd .bars{display:flex;align-items:flex-end;gap:2px;height:11px}
+.snd .bars i{display:block;width:2px;background:var(--red);height:11px;transform:scaleY(.36);transform-origin:center bottom;transition:transform .2s}
+.snd.playing .bars i{animation:eq .9s ease-in-out infinite}
+.snd.playing .bars i:nth-child(2){animation-delay:.22s}
+.snd.playing .bars i:nth-child(3){animation-delay:.44s}
+@keyframes eq{0%,100%{transform:scaleY(.27)}50%{transform:scaleY(1)}}
+.snd.off .bars i{background:#C9C4B8;animation:none;height:3px;transform:none}
+.nav-year{font-family:var(--mono);font-size:10.5px;letter-spacing:.16em;font-weight:400}
+
+/* ---------- 布局 ---------- */
+main{position:fixed;inset:56px 0 24px 0;display:flex;flex-direction:column}
+
+/* 中央点阵标题 */
+.stage{position:relative;flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:24px 40px 34px}
+#dotTitle{display:block;width:100%;flex:1 1 0;min-height:90px}
+.stage .tag{text-align:center;pointer-events:none;margin-top:18px;flex:0 0 auto}
+.stage .tag .keys{font-family:var(--mono);font-size:8.5px;letter-spacing:.22em;color:#B0AA9E;margin-top:14px;
+  display:none}
+.stage .tag .keys.show{display:block;animation:fadein .45s ease both}
+@keyframes fadein{from{opacity:0}to{opacity:1}}
+/* 未解锁时的「点击开启声音」：把浏览器限制做成开场 */
+.sndstart{display:inline-flex;align-items:center;gap:10px;margin-top:14px;padding:9px 16px;
+  background:var(--ink);color:var(--paper);font-family:var(--mono);font-size:9px;font-weight:700;
+  letter-spacing:.18em;cursor:pointer;box-shadow:0 8px 26px rgba(0,0,0,.16);
+  transition:background .25s,opacity .35s,transform .35s,height .35s,margin .35s,padding .35s}
+.sndstart:hover{background:var(--red)}
+.sndstart .pl{width:7px;height:7px;background:var(--red);display:block;animation:pip 1.15s ease-in-out infinite}
+.sndstart:hover .pl{background:#fff}
+@keyframes pip{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(.7)}}
+.sndstart.gone{opacity:0;transform:translateY(10px);pointer-events:none;
+  height:0;margin:0;padding:0;overflow:hidden;border:0}
+.snd.need .bars i{animation:eq 1.4s ease-in-out infinite;opacity:.65}
+.snd.need .bars i:nth-child(2){animation-delay:.22s}
+.snd.need .bars i:nth-child(3){animation-delay:.44s}
+.stage .tag .code{font-family:var(--mono);font-size:12px;font-weight:700;letter-spacing:.28em}
+.stage .tag .sub{font-family:var(--mono);font-size:9px;letter-spacing:.26em;color:var(--grey);margin-top:7px}
+
+/* ---------- 目的地列表 ---------- */
+.dests{border-top:none}
+.listhead{display:flex;align-items:center;justify-content:space-between;height:34px;padding:0 28px;
+  border-bottom:1px solid var(--line);font-family:var(--mono);font-size:8.5px;letter-spacing:.26em;color:#A9A398}
+.dest{position:relative;display:grid;grid-template-columns:64px minmax(200px,1.1fr) minmax(220px,1fr) auto 120px;
+  align-items:center;gap:20px;padding:0 28px;height:142px;border-bottom:1px solid var(--line);
+  cursor:pointer;overflow:hidden;transition:opacity .3s}
+.dest .wipe{position:absolute;inset:0;background:var(--red);z-index:0;
+  clip-path:inset(0 0 101% 0);transition:clip-path .5s cubic-bezier(.62,0,.2,1)}
+.dest:hover .wipe{clip-path:inset(0 0 0 0)}
+.dest>*:not(.wipe){position:relative;z-index:1}
+.dest .num{font-family:var(--mono);font-size:10px;letter-spacing:.22em;color:var(--grey);transition:color .3s}
+.dest .ttl{line-height:1}
+.dest .ttl .en{font-size:30px;font-weight:900;letter-spacing:-.01em;text-transform:uppercase;transition:color .3s}
+.dest .ttl .zh{font-family:var(--serif);font-size:14px;font-weight:700;letter-spacing:.3em;color:var(--grey);margin-top:6px;transition:color .3s}
+.dest .meta{font-family:var(--mono);font-size:9px;letter-spacing:.18em;color:var(--grey);line-height:2;transition:color .3s}
+.dest .meta b{color:var(--ink);font-weight:700;transition:color .3s}
+.dest .note{font-family:var(--serif);font-size:12px;color:var(--grey);letter-spacing:.06em;margin-top:2px;transition:color .3s;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dest .thumbs{display:flex;gap:6px;height:92px}
+.dest .thumbs img{width:68px;height:92px;object-fit:cover;display:block;background:#EDEAE2;
+  transition:transform .45s cubic-bezier(.2,.7,.2,1)}
+.dest:hover .thumbs img{transform:translateY(-4px)}
+.dest:hover .thumbs img:nth-child(2){transition-delay:.05s}
+.dest:hover .thumbs img:nth-child(3){transition-delay:.1s}
+.dest .go{font-family:var(--mono);font-size:10px;letter-spacing:.22em;text-align:right;color:var(--ink);transition:color .3s}
+.dest:hover .num,.dest:hover .ttl .en,.dest:hover .ttl .zh,.dest:hover .meta,.dest:hover .meta b,.dest:hover .note,.dest:hover .go{color:#fff}
+.dest:hover .thumbs img{box-shadow:0 6px 18px rgba(0,0,0,.25)}
+/* 未开放 */
+.dest.soon .ttl .en{color:#A39C8E}
+.dest .st{display:inline-block;font-family:var(--mono);font-size:8px;letter-spacing:.2em;padding:2.5px 7px;margin-left:10px;
+  vertical-align:6px;border:1px solid currentColor}
+.dest .st.open{color:var(--red)}
+.dest.soon .st{color:#A39C8E}
+.dest.soon:hover .st{color:#fff}
+.dest.soon .wipe{background:#16130F}
+.dest.soon .num,.dest.soon .meta,.dest.soon .meta b,.dest.soon .note,.dest.soon .go{color:#A39C8E}
+.dest.soon:hover .num,.dest.soon:hover .meta,.dest.soon:hover .meta b,.dest.soon:hover .note,.dest.soon:hover .go,
+.dest.soon:hover .ttl .en,.dest.soon:hover .ttl .zh,.dest.soon:hover .st{color:#fff}
+/* 占位：下一站 */
+.dest.ghost{border-bottom:none;cursor:default}
+.dest.ghost .dash{grid-column:1/-1;height:64px;border:1.5px dashed #D8D3C8;display:flex;align-items:center;justify-content:center;gap:12px;
+  font-family:var(--mono);font-size:10px;letter-spacing:.3em;color:#B4AEA1;transition:.25s}
+.dest.ghost:hover .dash{border-color:var(--red);color:var(--red)}
+.dest.ghost .wipe{display:none}
+
+/* 进入动画 */
+.dest{opacity:0;transform:translateY(14px);animation:rise .7s cubic-bezier(.2,.7,.2,1) forwards}
+html.snap .dest{animation:none;opacity:1;transform:none}
+.dest:nth-child(2){animation-delay:.08s}
+.dest:nth-child(3){animation-delay:.16s}
+@keyframes rise{to{opacity:1;transform:none}}
+
+/* ---------- footer ---------- */
+.foot{position:fixed;left:0;right:0;bottom:0;height:24px;display:flex;align-items:center;justify-content:space-between;
+  padding:0 28px;font-family:var(--mono);font-size:8px;letter-spacing:.24em;color:#A9A398;border-top:1px solid var(--line);background:var(--paper)}
+
+.curtain{position:fixed;inset:0;background:var(--red);z-index:300;transform:translateY(101%);pointer-events:none}
+.curtain.in{animation:cwipe .62s cubic-bezier(.7,0,.28,1) forwards}
+@keyframes cwipe{to{transform:translateY(0)}}
+
+.toast{position:fixed;left:50%;bottom:60px;transform:translateX(-50%);background:var(--ink);color:#fff;
+  font-size:11px;letter-spacing:.08em;padding:8px 16px;opacity:0;transition:opacity .3s;z-index:200;pointer-events:none}
+.toast.show{opacity:1}
+
+@media (max-height:800px){
+  .dest{height:118px}
+  .dest .thumbs{height:78px}
+  .dest .thumbs img{width:58px;height:78px}
+  .dest.ghost .dash{height:50px}
+  .listhead{height:30px}
+  .stage{padding:16px 40px 22px}
+  .stage .tag{margin-top:12px}
+  .stage .tag .keys{margin-top:10px}
+}
+
+@media (max-width:860px){
+  nav{padding-left:16px}
+  .nav-r>*{padding:0 13px}
+  #navCount{display:none}
+  .stage{padding:10px 20px 18px}
+  .listhead{padding:0 20px;letter-spacing:.18em}
+  .dest{grid-template-columns:30px 1fr;height:auto;padding:15px 20px;gap:4px 12px;align-items:center}
+  .dest .info,.dest .thumbs,.dest .go{display:none}
+  .dest .ttl .en{font-size:21px}
+  .dest .ttl .zh{font-size:12px;margin-top:5px}
+  .dest.ghost .dash{height:54px;font-size:9px;letter-spacing:.2em}
+}
+
+:focus-visible{outline:2px solid var(--red);outline-offset:3px}
+button,a{-webkit-tap-highlight-color:transparent}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
+
+.dest{width:100%;text-align:left}
+.stage .sndstart{pointer-events:auto}
+@media(max-width:600px){body{overflow:auto}main{position:relative;inset:auto;margin-top:56px;padding-bottom:32px}.stage{flex:none;height:40svh;min-height:230px;padding:16px}.nav-year{display:none}.nav-r>*{padding:0 12px;min-height:44px}.dest{min-height:82px}.dest .thumbs{display:flex;grid-column:2;height:48px;margin-top:8px}.dest .thumbs img{width:36px;height:48px}.dest .st{vertical-align:3px}.foot{padding:0 12px;letter-spacing:.08em}.toast{max-width:90vw}.stage .tag .sub{letter-spacing:.12em;line-height:1.8}}
+.audio-menu{position:relative;letter-spacing:.06em!important;padding:0 10px!important}
+.audio-menu summary{cursor:pointer;list-style:none;min-height:44px;display:flex;align-items:center;font-size:10px}
+.audio-menu summary::-webkit-details-marker{display:none}.audio-pop{position:absolute;right:0;top:55px;width:220px;padding:18px;background:var(--paper);border:1px solid var(--line);box-shadow:0 8px 24px rgba(0,0,0,.1);z-index:90;letter-spacing:.04em}
+.audio-pop label{display:block;font-size:12px}.audio-pop output{float:right;font-family:var(--mono)}.audio-pop input{display:block;width:100%;margin:14px 0;accent-color:var(--red);min-height:24px}.audio-pop p{font-size:10px;line-height:1.7;color:var(--grey);font-weight:400}
+@media(max-width:380px){.nav-r>*{padding-left:6px;padding-right:6px}.nav-r{letter-spacing:0}.audio-menu{padding:0 6px!important}.logo{gap:4px;font-size:13px}}
+.album-grid figure,.shelf figure{contain:layout paint}
+</style>
+</head>
+<body>
+
+<nav>
+  <a class="logo" href="./index.html">ATLAS<span class="bd">旅</span></a>
+  <div class="nav-r">
+    <a id="navCount" style="cursor:default">— PLACES</a>
+    <button class="snd" id="btnSound"><span class="bars"><i></i><i></i><i></i></span>Sound</button>
+    <span class="nav-year" id="navYear">MMXXV—</span>
+  </div>
+</nav>
+
+<main>
+  <div class="stage">
+    <canvas id="dotTitle"></canvas>
+    <div class="tag">
+      <div class="code" id="tagCode">A TRAVEL ATLAS</div>
+      <div class="sub" id="tagSub">把去过的地方，装订成册</div>
+      <div class="keys" id="tagKeys">SCROLL / ↑↓ 切换 · ENTER 进入</div>
+      <button class="sndstart" id="sndStart"><span class="pl"></span>♪ CLICK TO START SOUND · 点击任意处开启声音</button>
+    </div>
+  </div>
+  <div class="listhead" style="border-top:none;margin-top:-1px">
+    <span>INDEX — 旅程索引</span><span id="listMeta">—</span>
+  </div>
+  <div class="dests" id="dests"></div>
+</main>
+
+<div class="foot">
+  <span>A TRAVEL ATLAS</span>
+  <span id="footMid">—</span>
+  <span>EST. MMXXV</span>
+</div>
+<div class="curtain" id="curtain"></div>
+<div class="toast" id="toast"></div>
+
+<script src="album-summary.js"></script>
+<script>
+'use strict';
+var audioLevel=.55, audioDuck=1;
+try{var storedLevel=localStorage.getItem('atlas.volume');if(storedLevel!==null && Number.isFinite(+storedLevel))audioLevel=Math.max(0,Math.min(1,+storedLevel));}catch(e){}
+var savedSound=true; try{savedSound=localStorage.getItem('atlas.sound')!=='off';}catch(e){}
+function rememberSound(on){try{localStorage.setItem('atlas.sound',on?'on':'off');}catch(e){}}
+
+function $(s){ return document.querySelector(s); }
+function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
+function pad2(n){ return String(n).padStart(2,'0'); }
+var SNAP=/[?&]snap/.test(location.search);
+if(SNAP) document.documentElement.classList.add('snap');
+
+function enter(href){
+  var c=$('#curtain');
+  c.classList.add('in');
+  setTimeout(function(){ location.href=href; }, 560);
+}
+
+/* ============================================================
+   目的地配置 —— 以后加新旅程，只要在 travel/ 下建一个文件夹，
+   再在这里加一条记录即可：
+   { id, en, zh, dates, photos, chapters, cities, note,
+     href:'xxx/index.html', thumbs:[三张缩略图], open:true }
+   open:false 表示「还在整理」。
+   ============================================================ */
+var DESTS=[
+  { id:'japan', no:'01', en:'JAPAN', zh:'日本', dates:'2025.07',
+    photos:50, chapters:6, cities:'TOKYO · OSAKA · KOBE · KYOTO',
+    note:'朱红、霓虹、高塔、翠绿、小事与天空。',
+    href:'japan/index.html', open:true,
+    thumbs:['japan/thumbs/p39.jpg','japan/thumbs/p11.jpg','japan/thumbs/p35.jpg','japan/thumbs/p04.jpg','japan/thumbs/p18.jpg'],
+    voice:'pluck', dots:['#D8482F','#E0573C','#C93F28'] },
+  { id:'china', no:'02', en:'CHINA', zh:'中国', dates:'—— · ——',
+    photos:0, chapters:0, cities:'整理中',
+    note:'走过的地方很多，还没装订成册。',
+    href:null, open:false, thumbs:[], voice:'bell',
+    dots:['#171512','#3A362F','#57524A'] }
+];
+
+/* ================= 声音（轻量版，与相册同一套音色） ================= */
+var Sound=(function(){
+  var ctx=null, master=null, music=null, comp=null, verb=null, busGain=null;
+  var on=savedSound, timer=null, cur=null, step=0, nextT=0, noiseBuf=null, pend=null;
+  var unlocked=false, unlockHooks=[];
+  var BPM=70, EIGHTH=60/BPM/2;
+  var MEL=[0,7,3,7, 10,7,3,0, 0,3,7,12, 10,7,3,-1, 5,3,0,10, 7,3,0,-1, 3,5,7,10, 7,3,0,3];
+  var BASS=[0,3,-4,-2];
+  function f(semi){ return 220*Math.pow(2,semi/12); }
+  function impulse(){
+    var len=Math.floor(ctx.sampleRate*1.9), buf=ctx.createBuffer(2,len,ctx.sampleRate);
+    for(var ch=0;ch<2;ch++){ var d=buf.getChannelData(ch);
+      for(var i=0;i<len;i++) d[i]=(Math.random()*2-1)*Math.pow(1-i/len,2.6); }
+    return buf;
+  }
+  function ensure(){
+    if(!ctx){
+      var AC=window.AudioContext||window.webkitAudioContext; if(!AC) return false;
+      ctx=new AC();
+      master=ctx.createGain(); master.gain.value=on?audioLevel:0;
+      comp=ctx.createDynamicsCompressor(); comp.threshold.value=-16; comp.ratio.value=3;
+      master.connect(comp); comp.connect(ctx.destination);
+      music=ctx.createGain(); music.gain.value=.9; music.connect(master);
+      verb=ctx.createConvolver(); verb.buffer=impulse();
+      var vg=ctx.createGain(); vg.gain.value=.25; verb.connect(vg); vg.connect(master);
+      noiseBuf=(function(){
+        var b=ctx.createBuffer(1,ctx.sampleRate*3,ctx.sampleRate), d=b.getChannelData(0), last=0;
+        for(var i=0;i<d.length;i++){ var w=Math.random()*2-1; last=(last+0.02*w)/1.02; d[i]=last*3.2; }
+        return b;
+      })();
+    }
+    if(ctx.state==='suspended'){
+      ctx.resume();
+      ctx.onstatechange=replayIfReady;
+      try{ ctx.resume().then(replayIfReady,replayIfReady); }catch(e){}
+    }
+    replayIfReady();
+    if(ctx.state==='running') markRunning();
+    return true;
+  }
+  /* 解锁状态对外广播：页面提示、按钮电平都靠它同步 */
+  function markRunning(){
+    if(unlocked) return;
+    unlocked=true;
+    var hs=unlockHooks.slice(); unlockHooks=[];
+    hs.forEach(function(f){ try{ f(); }catch(e){} });
+  }
+  function onUnlock(fn){ if(unlocked) fn(); else unlockHooks.push(fn); }
+  function replayIfReady(){
+    if(!ctx || ctx.state!=='running') return;
+    if(pend){
+      var p=pend; pend=null;
+      if(p.bgm){ var t=p.bgm; stopBgm(); startBgm(t); }
+      /* 解锁瞬间给一声和弦，作为「声音已经开了」的即时反馈 */
+      setTimeout(function(){ if(ctx && ctx.state==='running') chord(); }, 90);
+    }
+    markRunning();
+  }
+  function send(node,amt){ var g=ctx.createGain(); g.gain.value=amt; node.connect(g); g.connect(verb); }
+  function pluck(t,g,note,sendAmt){
+    var o=ctx.createOscillator(), o2=ctx.createOscillator(), gn=ctx.createGain(), fl=ctx.createBiquadFilter();
+    o.type='triangle'; o2.type='sine'; o.frequency.value=note; o2.frequency.value=note*2.002;
+    fl.type='lowpass'; fl.frequency.setValueAtTime(4200,t); fl.frequency.exponentialRampToValueAtTime(900,t+.6);
+    gn.gain.setValueAtTime(.0001,t); gn.gain.linearRampToValueAtTime(g,t+.006);
+    gn.gain.exponentialRampToValueAtTime(.0001,t+.85);
+    var g2=ctx.createGain(); g2.gain.value=.25; o2.connect(g2); g2.connect(gn);
+    o.connect(fl); fl.connect(gn); gn.connect(busGain); if(sendAmt) send(gn,sendAmt);
+    o.start(t); o2.start(t); o.stop(t+.9); o2.stop(t+.9);
+  }
+  function bell(t,g,note,sendAmt){
+    var c=ctx.createOscillator(), m=ctx.createOscillator(), mg=ctx.createGain(), gn=ctx.createGain();
+    c.frequency.value=note; m.frequency.value=note*3.01;
+    mg.gain.setValueAtTime(note*1.4,t); mg.gain.exponentialRampToValueAtTime(2,t+1.6);
+    m.connect(mg); mg.connect(c.frequency);
+    gn.gain.setValueAtTime(.0001,t); gn.gain.linearRampToValueAtTime(g,t+.004);
+    gn.gain.exponentialRampToValueAtTime(.0001,t+2.4);
+    c.connect(gn); gn.connect(busGain); if(sendAmt) send(gn,sendAmt);
+    c.start(t); m.start(t); c.stop(t+2.6); m.stop(t+2.6);
+  }
+  function pad(t,g,note,dur){
+    [0,4,-5].forEach(function(det){
+      var o=ctx.createOscillator(), gn=ctx.createGain(), fl=ctx.createBiquadFilter();
+      o.type='sine'; o.frequency.value=note; o.detune.value=det;
+      fl.type='lowpass'; fl.frequency.value=1800;
+      gn.gain.setValueAtTime(.0001,t); gn.gain.linearRampToValueAtTime(g,t+dur*.45);
+      gn.gain.exponentialRampToValueAtTime(.0001,t+dur);
+      o.connect(fl); fl.connect(gn); gn.connect(busGain);
+      o.start(t); o.stop(t+dur+.1);
+    });
+  }
+  function startBgm(type){
+    if(!ensure()) return;
+    if(ctx.state!=='running') pend={bgm:type};
+    if(cur===type) return;
+    stopBgm(); cur=type;
+    busGain=ctx.createGain(); busGain.gain.value=1; busGain.connect(music);
+    var t0=ctx.currentTime+.12;
+    busGain.gain.setValueAtTime(.0001,t0);
+    busGain.gain.linearRampToValueAtTime(1,t0+.7);
+    step=0; nextT=ctx.currentTime+.15;
+    timer=setInterval(function(){
+      if(!ctx || !busGain) return;
+      if(ctx.state!=='running') return;
+      if(nextT < ctx.currentTime) nextT=ctx.currentTime+.06;
+      while(nextT < ctx.currentTime+.45){
+        var s2=step%32, bar=Math.floor(s2/8), semi=MEL[s2];
+        if(semi>=0) pluck(nextT,.055,f(semi+12),.45);
+        if(s2%8===0) pad(nextT,.034,f(BASS[bar]-12),2.6);
+        step++; nextT+=EIGHTH;
+      }
+    },90);
+  }
+  function stopBgm(){
+    if(timer){ clearInterval(timer); timer=null; }
+    if(busGain && ctx){
+      var g=busGain, t=ctx.currentTime;
+      try{ g.gain.cancelScheduledValues(t); g.gain.setValueAtTime(g.gain.value,t);
+        g.gain.linearRampToValueAtTime(.0001,t+.35); }catch(e){}
+      setTimeout(function(){ try{ g.disconnect(); }catch(e){} },1200);
+      busGain=null;
+    }
+    cur=null;
+  }
+  /* 每个目的地一句专属动机 */
+  function voice(kind){
+    if(!ensure() || ctx.state!=='running') return;
+    var t=ctx.currentTime+.03, g=ctx.createGain(); g.gain.value=1; g.connect(music);
+    var old=busGain; busGain=g;
+    if(kind==='bell'){
+      bell(t,.09,f(-5),.4); bell(t+.22,.075,f(-1),.4); bell(t+.46,.08,f(2),.5);
+    }else{
+      pluck(t,.09,f(12),.4); pluck(t+.16,.07,f(19),.35); pluck(t+.3,.08,f(15),.4); pluck(t+.52,.06,f(24),.5);
+    }
+    busGain=old;
+    setTimeout(function(){ try{ g.disconnect(); }catch(e){} },2600);
+  }
+  function tick(){
+    if(!ctx || ctx.state!=='running') return;
+    var t=ctx.currentTime; if(t-(tick.last||0)<.16)return;tick.last=t; var o=ctx.createOscillator(), g=ctx.createGain();
+    o.type='sine'; o.frequency.setValueAtTime(1500,t); o.frequency.exponentialRampToValueAtTime(880,t+.05);
+    g.gain.setValueAtTime(.025,t); g.gain.exponentialRampToValueAtTime(.0001,t+.07);
+    o.connect(g); g.connect(master); o.start(t); o.stop(t+.09);
+  }
+  function chord(){
+    if(!ensure() || ctx.state!=='running') return;
+    var t=ctx.currentTime+.02, g=ctx.createGain(); g.gain.value=1; g.connect(music);
+    var old=busGain; busGain=g;
+    [0,3,7,12].forEach(function(s,i){ pluck(t+i*.05,.075,f(s),.5); });
+    busGain=old;
+    setTimeout(function(){ try{ g.disconnect(); }catch(e){} },2000);
+  }
+
+  function setLevel(value,duck){
+    if(duck!==undefined)audioDuck=duck;
+    if(value!==null){audioLevel=value;try{localStorage.setItem('atlas.volume',String(value));}catch(e){}}
+    if(ctx&&master){var t=ctx.currentTime;master.gain.cancelScheduledValues(t);master.gain.setValueAtTime(master.gain.value,t);master.gain.linearRampToValueAtTime(on?audioLevel*audioDuck:0.0001,t+.35);}
+  }
+  document.addEventListener('visibilitychange',function(){
+    if(!ctx)return;
+    if(document.hidden){ctx.suspend().catch(function(){});}else if(unlocked){ctx.resume().catch(function(){});}
+  });
+  return {setLevel:setLevel, _ctx:function(){ return ctx?ctx.state:'none'; },
+    unlocked:function(){ return unlocked; }, onUnlock:onUnlock,
+    ensure:ensure, bgm:startBgm, stopBgm:stopBgm, voice:voice, tick:tick, chord:chord,
+    toggle:function(){ on=!on; rememberSound(on); if(ctx&&master) master.gain.linearRampToValueAtTime(on?audioLevel*audioDuck:.0001,ctx.currentTime+.2); return on; } };
+})();
+
+
+function syncSoundControl(){
+  var b=document.getElementById('btnSound');
+  b.setAttribute('aria-pressed',!b.classList.contains('off')?'true':'false');
+  b.setAttribute('aria-label',b.classList.contains('off')?'开启相册声音':'关闭相册声音');
+}
+var audioMenu=document.createElement('details');audioMenu.className='audio-menu';
+audioMenu.innerHTML='<summary aria-label="调整相册音量">音量</summary><div class="audio-pop"><label>相册音量 <output id="volumeValue"></output><input id="volumeRange" type="range" min="0" max="100" step="5" aria-label="相册音量"></label><p>音量会自动记住，切到后台暂停。</p></div>';
+document.getElementById('btnSound').after(audioMenu);
+var volumeRange=document.getElementById('volumeRange'),volumeValue=document.getElementById('volumeValue');
+volumeRange.value=Math.round(audioLevel*100);volumeValue.textContent=volumeRange.value+'%';
+volumeRange.addEventListener('input',function(){Sound.setLevel(+this.value/100);volumeValue.textContent=this.value+'%';});
+audioMenu.addEventListener('keydown',function(e){e.stopPropagation();if(e.key==='Escape'){audioMenu.open=false;audioMenu.querySelector('summary').focus();}});
+document.addEventListener('click',function(e){if(!audioMenu.contains(e.target))audioMenu.open=false;syncSoundControl();});
+syncSoundControl();
+/* ================= 点阵粒子标题 ================= */
+function DotTitle(canvas){
+  var ctx=canvas.getContext('2d');
+  var targetCache=new Map(),groups=[],lastFrame=0,dead=false;
+  var still=matchMedia('(prefers-reduced-motion: reduce)').matches || /[?&](snap|noanim)/.test(location.search);
+
+  var parts=[], raf=null, mouse={x:-9999,y:-9999}, W=0, H=0, DPR=2, GAP=9, word='';
+  function resize(){
+    var r=canvas.getBoundingClientRect();
+    W=Math.max(2,Math.round(r.width*DPR)); H=Math.max(2,Math.round(r.height*DPR));
+    canvas.width=W; canvas.height=H;
+    GAP=Math.max(6,Math.round(W/120));
+  }
+  function targets(word){
+    var cacheKey=word+'|'+W+'|'+H+'|'+GAP;
+    if(targetCache.has(cacheKey))return targetCache.get(cacheKey);
+
+    var off=document.createElement('canvas'); off.width=W; off.height=H;
+    var o=off.getContext('2d');
+    var TRACK=0.055;
+    function setFont(fs){ o.font='900 '+fs+'px "Arial Black",Impact,"Helvetica Neue",sans-serif'; }
+    function lineWidth(str,fs){ setFont(fs); var w=0;
+      for(var i=0;i<str.length;i++) w+=o.measureText(str[i]).width+(i<str.length-1?fs*TRACK:0);
+      return w; }
+    var lo=8, hi=Math.round(H*1.5);
+    while(hi-lo>1){ var mid=(hi+lo)>>1; if(lineWidth(word,mid)<=W*0.94 && mid*0.8<=H*0.9) lo=mid; else hi=mid; }
+    var fs=lo; setFont(fs); o.textAlign='left'; o.textBaseline='middle';
+    o.fillStyle='#000'; o.strokeStyle='#000'; o.lineJoin='round'; o.lineWidth=Math.max(3,GAP*1.0);
+    var tw=lineWidth(word,fs), x=W/2-tw/2, y=H/2;
+    for(var j=0;j<word.length;j++){
+      var ch=word[j], cw=o.measureText(ch).width;
+      o.fillText(ch,x,y); o.strokeText(ch,x,y); x+=cw+fs*TRACK;
+    }
+    var d=o.getImageData(0,0,W,H).data, pts=[], x2, y2, ox, oy, hit;
+    for(y2=0;y2<H;y2+=GAP) for(x2=0;x2<W;x2+=GAP){
+      hit=0;
+      for(oy=-3;oy<=3;oy+=3) for(ox=-3;ox<=3;ox+=3){
+        var px=clamp(x2+ox,0,W-1), py=clamp(y2+oy,0,H-1);
+        if(d[(py*W+px)*4+3]>110){ hit=1; break; }
+      }
+      if(hit) pts.push([x2,y2]);
+    }
+    if(targetCache.size>=8)targetCache.delete(targetCache.keys().next().value);targetCache.set(cacheKey,pts);
+    return pts;
+  }
+  function set(w,colors){
+    word=w;
+    var pts=targets(w), i, p;
+    while(parts.length<pts.length)
+      parts.push({x:Math.random()*W,y:Math.random()*H,vx:0,vy:0,c:colors[0],on:false,tx:0,ty:0});
+    for(i=0;i<parts.length;i++){
+      p=parts[i];
+      if(i<pts.length){ p.tx=pts[i][0]; p.ty=pts[i][1]; p.c=colors[i%colors.length]; p.on=true; }
+      else p.on=false;
+    }
+    if(SNAP || still) parts.forEach(function(q){ if(q.on){ q.x=q.tx; q.y=q.ty; q.vx=q.vy=0; } });
+    groups=colors.map(function(color){return {color:color,points:[]};});
+    parts.forEach(function(p,i){if(p.on){p.ps=Math.sin(i*.7);p.pc=Math.cos(i*.7);groups[i%groups.length].points.push(p);}});
+    if(!raf && !document.hidden)loop(performance.now());
+  }
+  var S=GAP*0.62;
+  function loop(now){
+    raf=null;if(dead||document.hidden)return;
+    if(!still)raf=requestAnimationFrame(loop);
+    var dt=lastFrame?Math.min(2,Math.max(.1,(now-lastFrame)/16.6667)):1;lastFrame=now;
+    var damping=Math.pow(.8,dt),t=now/1000,ts=Math.sin(t*1.2),tc=Math.cos(t*1.2);
+    ctx.clearRect(0,0,W,H);
+    groups.forEach(function(group){
+      ctx.fillStyle=group.color;ctx.beginPath();
+      group.points.forEach(function(p){
+        if(!still){
+          var wob=(ts*p.pc+tc*p.ps)*2.4,dx=p.tx-p.x,dy=p.ty+wob-p.y;
+          p.vx=(p.vx+dx*.055*dt)*damping;p.vy=(p.vy+dy*.055*dt)*damping;
+          var mx=p.x-mouse.x,my=p.y-mouse.y,dist2=mx*mx+my*my;
+          if(dist2<22500&&dist2>.0001){var dist=Math.sqrt(dist2),force=(1-dist/150)*9*dt;p.vx+=mx/dist*force;p.vy+=my/dist*force;}
+          p.x+=p.vx*dt;p.y+=p.vy*dt;
+        }
+        ctx.rect(p.x-S/2,p.y-S/2,S,S);
+      });ctx.fill();
+    });
+  }
+  function titleVisibility(){
+    if(document.hidden){cancelAnimationFrame(raf);raf=null;lastFrame=0;}
+    else if(!dead&&!raf){lastFrame=0;loop(performance.now());}
+  }
+  document.addEventListener('visibilitychange',titleVisibility);
+  canvas.addEventListener('pointermove', function(e){
+    var r=canvas.getBoundingClientRect();
+    mouse.x=(e.clientX-r.left)*DPR; mouse.y=(e.clientY-r.top)*DPR;
+  });
+  canvas.addEventListener('pointerleave', function(){ mouse.x=-9999; mouse.y=-9999; });
+  window.addEventListener('resize', function(){ resize(); set(word, curDots); });
+  resize();
+  return { set:set };
+}
+
+/* ================= 页面 ================= */
+var dotTitle=null, curDots=['#D8482F','#E0573C','#C93F28'];
+var selIdx=-1, wheelLock=0;
+
+function toast(msg){
+  var t=$('#toast'); t.textContent=msg; t.classList.add('show');
+  clearTimeout(toast._tm); toast._tm=setTimeout(function(){ t.classList.remove('show'); },2200);
+}
+
+function showWord(idx){
+  selIdx=idx;
+  wIdx=idx<0?0:idx+1;
+  if(idx<0){
+    curDots=['#D8482F','#E0573C','#C93F28'];
+    dotTitle.set('ATLAS',curDots);
+    $('#tagCode').textContent='A TRAVEL ATLAS';
+    $('#tagSub').textContent='把去过的地方，装订成册';
+  }else{
+    var d=DESTS[idx];
+    curDots=d.dots;
+    dotTitle.set(d.en,curDots);
+    $('#tagCode').textContent=d.no+' — '+(d.open? pad2(d.photos)+' PHOTOS · '+pad2(d.chapters)+' CHAPTERS' : 'COMING SOON');
+    $('#tagSub').textContent=d.cities;
+    Sound.voice(d.voice);
+  }
+}
+
+function buildDests(){
+  DESTS.forEach(function(d){var s=(window.ALBUM_SUMMARY||{})[d.id];if(s){d.photos=s.photos;d.chapters=s.chapters;}});
+  var wrap=$('#dests'); wrap.innerHTML='';
+  DESTS.forEach(function(d,i){
+    var row=document.createElement(d.open?'a':'button');
+    if(d.open) row.href=d.href; else row.type='button';
+    row.className='dest'+(d.open?'':' soon');
+    var thumbs=d.thumbs.length
+      ? '<div class="thumbs">'+d.thumbs.map(function(t){ return '<img src="'+t+'" alt="" draggable="false">'; }).join('')+'</div>'
+      : '<div class="thumbs"><span style="font-family:var(--mono);font-size:9px;letter-spacing:.2em;color:#B4AEA1;align-self:center">NO PHOTOS YET</span></div>';
+    row.innerHTML=
+      '<div class="wipe"></div>'+
+      '<div class="num">'+d.no+'</div>'+
+      '<div class="ttl"><div class="en">'+d.en+'<span class="st '+(d.open?'open':'')+'">'+(d.open?'OPEN':'SOON')+'</span></div>'+
+        '<div class="zh">'+d.zh+'</div></div>'+
+      '<div class="info"><div class="meta"><b>'+d.dates+'</b> · '+(d.open?('<b>'+d.photos+'</b> PHOTOS · <b>'+d.chapters+'</b> CHAPTERS'):'IN PREPARATION')+'<br>'+d.cities+'</div>'+
+        '<div class="note">'+d.note+'</div></div>'+
+      thumbs+
+      '<div class="go">'+(d.open?'ENTER →':'···')+'</div>';
+    row.addEventListener('pointerenter', function(){ if(selIdx!==i){ showWord(i); } Sound.tick(); });
+    row.addEventListener('pointerleave', function(){ /* 保持最后悬停的词，不移回 */ });
+    row.addEventListener('click', function(e){
+      if(e.metaKey||e.ctrlKey||e.shiftKey||e.altKey)return; e.preventDefault();
+      Sound.chord();
+      if(d.open) enter(d.href);
+      else toast('「'+d.zh+'」相册还在路上，整理好了就放进去。');
+    });
+    wrap.appendChild(row);
+  });
+  /* 下一站占位 */
+  var ghost=document.createElement('div');
+  ghost.className='dest ghost';
+  ghost.innerHTML='<div class="wipe"></div><div class="dash">+ NEXT TRIP · 下一站，还没出发</div>';
+  ghost.addEventListener('click', function(){ Sound.tick(); toast('下次旅行回来，这里会多一本。'); });
+  wrap.appendChild(ghost);
+
+  var opened=DESTS.filter(function(d){ return d.open; });
+  $('#navCount').textContent=pad2(DESTS.length)+' PLACES';
+  $('#listMeta').textContent=pad2(opened.reduce(function(s2,d){ return s2+d.photos; },0))+' PHOTOS · '+pad2(opened.length)+' OPEN';
+  $('#footMid').textContent=pad2(opened.length)+' ALBUM'+(opened.length>1?'S':'')+' · '+opened.reduce(function(s,d){ return s+d.photos; },0)+' PHOTOS';
+}
+
+/* 滚轮：切换目的地（标题粒子变形 + 专属配音） */
+var words=[-1].concat(DESTS.map(function(_,i){ return i; }));
+var wIdx=0;
+document.addEventListener('wheel', function(e){
+  var now=Date.now();
+  if(now-wheelLock<380) return;
+  wheelLock=now;
+  wIdx=(wIdx+(e.deltaY>0?1:-1)+words.length)%words.length;
+  showWord(words[wIdx]);
+  if(words[wIdx]<0) Sound.tick();
+},{passive:true});
+
+document.addEventListener('keydown', function(e){
+  if(e.key==='ArrowDown'||e.key==='ArrowRight'||e.key==='ArrowUp'||e.key==='ArrowLeft'){
+    e.preventDefault();
+    var d=(e.key==='ArrowDown'||e.key==='ArrowRight')?1:-1;
+    wIdx=(wIdx+d+words.length)%words.length;
+    showWord(words[wIdx]);
+  }
+  if(e.key==='Enter' && e.target===document.body && selIdx>=0 && DESTS[selIdx] && DESTS[selIdx].open){
+    Sound.chord(); enter(DESTS[selIdx].href);
+  }
+});
+
+$('#btnSound').addEventListener('click', function(){
+  var was=Sound.unlocked() || !savedSound;
+  Sound.ensure();
+  if(!was){
+    /* 第一次点 Sound 按钮 = 开声，不要再 toggle 成静音 */
+    this.classList.remove('off'); this.classList.add('playing','on');
+    toast('声音 开 · SOUND ON');
+    return;
+  }
+  var onNow=Sound.toggle();
+  this.classList.toggle('off',!onNow);
+  this.classList.toggle('playing',onNow);
+  toast(onNow?'声音 开 · SOUND ON':'声音 关 · SOUND OFF');
+});
+
+/* 声音一旦真正 running，就把开场提示收起、电平点亮 */
+if(!savedSound) $('#btnSound').classList.add('off');
+Sound.onUnlock(function(){
+  var b=$('#btnSound'), start=$('#sndStart'), keys=$('#tagKeys');
+  if(start) start.classList.add('gone');
+  if(keys) keys.classList.add('show');
+  if(b){ b.classList.remove('need'); if(!b.classList.contains('off')) b.classList.add('playing'); }
+});
+
+/* 任何一次交互都尝试解锁：滚轮/悬停不算浏览器手势，但一并尝试不亏；
+   真正生效的是点击、触摸、按键 */
+function unlockSound(){ Sound.ensure(); }
+['pointerdown','pointerup','click','touchstart','touchend','keydown'].forEach(function(ev){
+  document.addEventListener(ev, unlockSound, {passive:true});
+});
+$('#sndStart').addEventListener('click', function(){ Sound.ensure(); Sound.chord(); });
+
+buildDests();
+dotTitle=DotTitle($('#dotTitle'));
+showWord(-1);
+Sound.bgm('cover');
+/* 浏览器若本来就允许自动播放，开场提示立刻收起 */
+if(!Sound.unlocked()) $('#btnSound').classList.add('need');
+document.title='ATLAS · 旅行总站';
+</script>
+</body>
+</html>
